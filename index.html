@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6f8;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        width: 80%;
+        max-width: 1000px;
+        background-color: #ffffff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+      }
+
+      h2,
+      h3,
+      h4 {
+        text-align: center;
+        color: #333333;
+        font-weight: 700;
+        margin-top: 0;
+      }
+
+      .section {
+        margin-bottom: 20px;
+      }
+
+      .stock-prices ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .stock-prices li {
+        font-size: 18px;
+        padding: 10px;
+        margin-bottom: 8px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background-color: #f9f9f9;
+      }
+
+      .order-book {
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .order-column {
+        width: 48%;
+        padding: 10px;
+        background-color: #f1f1f1;
+        border-radius: 6px;
+      }
+
+      .order-column h4 {
+        text-align: center;
+        color: #444;
+        font-weight: 600;
+      }
+
+      .order-column ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .order-column li {
+        padding: 8px;
+        margin: 6px 0;
+        border-radius: 4px;
+        color: #333;
+      }
+
+      .buy-order {
+        background-color: #e0f7e0;
+        color: #2e7d32;
+      }
+
+      .sell-order {
+        background-color: #fce4ec;
+        color: #c62828;
+      }
+
+      .form-container {
+        text-align: center;
+        background-color: #f7f7f7;
+        padding: 15px;
+        border-radius: 6px;
+        margin-top: 20px;
+      }
+
+      .form-container label {
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .form-container input,
+      .form-container select,
+      .form-container button {
+        margin: 5px;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+
+      .matched-orders {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #e3f2fd;
+        border-radius: 6px;
+      }
+
+      .matched-orders ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .matched-orders li {
+        font-size: 16px;
+        padding: 8px;
+        color: #1e88e5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" ng-app="stockApp" ng-controller="stockController">
+      <h2>OXO Market Maker Platform</h2>
+
+      <!-- Real-Time OXO Prices -->
+      <div class="section stock-prices">
+        <h3>Real-Time OXO Prices</h3>
+        <ul>
+          <li ng-repeat="stock in stocks">
+            <strong>{{ stock.name }}:</strong>
+            <span
+              ng-style="{'color': stock.priceChange >= 0 ? 'green' : 'red'}"
+            >
+              ${{ stock.price | number: 4 }}
+            </span>
+            <span ng-show="stock.priceChange >= 0" style="color: green">
+              (+{{ stock.priceChange | number: 4 }})
+            </span>
+            <span ng-show="stock.priceChange < 0" style="color: red">
+              ({{ stock.priceChange | number: 4 }})
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Order Book -->
+      <div class="section order-book">
+        <div class="order-column">
+          <h4>Buy Orders</h4>
+          <ul>
+            <li ng-repeat="order in buyOrders" class="buy-order">
+              Price: ${{ order.price | number: 4 }} | Quantity: {{
+              order.quantity }} OXO
+            </li>
+          </ul>
+        </div>
+        <div class="order-column">
+          <h4>Sell Orders</h4>
+          <ul>
+            <li ng-repeat="order in sellOrders" class="sell-order">
+              Price: ${{ order.price | number: 4 }} | Quantity: {{
+              order.quantity }} OXO
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Place New Order Form -->
+      <div class="section form-container">
+        <h3>Place New Order</h3>
+        <form ng-submit="placeOrder()">
+          <label for="orderType">Order Type:</label>
+          <select ng-model="orderType" required>
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+          <br />
+
+          <label for="price">Price:</label>
+          <input type="number" ng-model="orderPrice" step="0.0001" required />
+          <br />
+
+          <label for="quantity">Quantity:</label>
+          <input type="number" ng-model="orderQuantity" required />
+          <br />
+
+          <button type="submit">Place Order</button>
+        </form>
+      </div>
+
+      <!-- Matched Orders -->
+      <div class="section matched-orders">
+        <h3>Matched Orders</h3>
+        <ul>
+          <li ng-repeat="match in matchedOrders">
+            <strong>{{ match.buy.name }} and {{ match.sell.name }}:</strong>
+            Matched {{ match.quantity }} OXO at ${{ match.price | number: 4 }}
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      var app = angular.module("stockApp", []);
+      app.controller("stockController", function ($scope, $timeout, $interval) {
+        $scope.stocks = [
+          { name: "OXO", price: 0.0251, previousPrice: 0.0251, priceChange: 0 },
+        ];
+        $scope.buyOrders = [
+          { price: 0.0245, quantity: 100 },
+          { price: 0.025, quantity: 150 },
+        ];
+        $scope.sellOrders = [
+          { price: 0.0255, quantity: 200 },
+          { price: 0.026, quantity: 50 },
+        ];
+        $scope.matchedOrders = [];
+        const marketMakerSpread = 0.0005;
+
+        $scope.placeOrder = function () {
+          const order = {
+            price: parseFloat($scope.orderPrice),
+            quantity: parseInt($scope.orderQuantity),
+          };
+          if ($scope.orderType === "buy") {
+            $scope.buyOrders.push(order);
+            $scope.buyOrders.sort((a, b) => b.price - a.price);
+          } else if ($scope.orderType === "sell") {
+            $scope.sellOrders.push(order);
+            $scope.sellOrders.sort((a, b) => a.price - b.price);
+          }
+          $scope.orderPrice = "";
+          $scope.orderQuantity = "";
+          matchOrders();
+        };
+
+        function updateStockPrices() {
+          $scope.stocks.forEach((stock) => {
+            var change = (Math.random() * 0.001 - 0.0005).toFixed(4);
+            stock.priceChange = parseFloat(change);
+            stock.previousPrice = stock.price;
+            stock.price = parseFloat(
+              (stock.price + stock.priceChange).toFixed(4)
+            );
+            matchOrders();
+            addMarketMakerOrders();
+          });
+          $timeout(updateStockPrices, Math.floor(Math.random() * 100) + 1000);
+        }
+
+        function addMarketMakerOrders() {
+          const currentPrice = $scope.stocks[0].price;
+          const buyPrice = (currentPrice - marketMakerSpread).toFixed(4);
+          const sellPrice = (currentPrice + marketMakerSpread).toFixed(4);
+          if (!$scope.buyOrders.find((order) => order.price == buyPrice))
+            $scope.buyOrders.push({
+              price: parseFloat(buyPrice),
+              quantity: Math.floor(Math.random() * 101) + 50,
+            });
+          if (!$scope.sellOrders.find((order) => order.price == sellPrice))
+            $scope.sellOrders.push({
+              price: parseFloat(sellPrice),
+              quantity: Math.floor(Math.random() * 1000) + 10,
+            });
+          $scope.buyOrders.sort((a, b) => b.price - a.price);
+          $scope.sellOrders.sort((a, b) => a.price - b.price);
+        }
+
+        function matchOrders() {
+          $scope.buyOrders.forEach((buyOrder, i) => {
+            $scope.sellOrders.forEach((sellOrder, j) => {
+              if (buyOrder.price >= sellOrder.price) {
+                const matchedPrice = $scope.stocks[0].price;
+                const quantity = Math.min(
+                  buyOrder.quantity,
+                  sellOrder.quantity
+                );
+                $scope.matchedOrders.push({
+                  buy: { name: "OXO", price: buyOrder.price },
+                  sell: { name: "OXO", price: sellOrder.price },
+                  quantity,
+                  price: matchedPrice.toFixed(4),
+                });
+                buyOrder.quantity -= quantity;
+                sellOrder.quantity -= quantity;
+                if (buyOrder.quantity <= 0) $scope.buyOrders.splice(i, 1);
+                if (sellOrder.quantity <= 0) $scope.sellOrders.splice(j, 1);
+              }
+            });
+          });
+        }
+
+        updateStockPrices();
+        $interval(matchOrders, 1000);
+      });
+    </script>
+  </body>
+</html>
