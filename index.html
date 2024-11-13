@@ -250,7 +250,7 @@
 
         function updateStockPrices() {
           $scope.stocks.forEach((stock) => {
-            var change = (Math.random() * 0.001 - 0.0005).toFixed(4);
+            var change = (Math.random() * 0.001 - 0.005).toFixed(4);
             stock.priceChange = parseFloat(change);
             stock.previousPrice = stock.price;
             stock.price = parseFloat(
